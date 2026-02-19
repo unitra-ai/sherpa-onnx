@@ -47,7 +47,12 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          SHERPA_ONNX_VERSION=v$(grep "SHERPA_ONNX_VERSION" ./CMakeLists.txt | cut -d " " -f 2 | cut -d '"' -f 2)
+          # Use git tag if available, otherwise fall back to CMakeLists.txt version
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            SHERPA_ONNX_VERSION=${GITHUB_REF_NAME}
+          else
+            SHERPA_ONNX_VERSION=v$(grep "SHERPA_ONNX_VERSION" ./CMakeLists.txt | cut -d " " -f 2 | cut -d '"' -f 2)
+          fi
 
           if [[ "${{ matrix.shared_lib }}" == "ON" ]]; then
             suffix=shared
@@ -110,7 +115,12 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          SHERPA_ONNX_VERSION=v$(grep "SHERPA_ONNX_VERSION" ./CMakeLists.txt | cut -d " " -f 2 | cut -d '"' -f 2)
+          # Use git tag if available, otherwise fall back to CMakeLists.txt version
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            SHERPA_ONNX_VERSION=${GITHUB_REF_NAME}
+          else
+            SHERPA_ONNX_VERSION=v$(grep "SHERPA_ONNX_VERSION" ./CMakeLists.txt | cut -d " " -f 2 | cut -d '"' -f 2)
+          fi
 
           if [[ "${{ matrix.shared_lib }}" == "ON" ]]; then
             suffix=shared
@@ -189,7 +199,12 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          SHERPA_ONNX_VERSION=v$(grep "SHERPA_ONNX_VERSION" ./CMakeLists.txt | cut -d " " -f 2 | cut -d '"' -f 2)
+          # Use git tag if available, otherwise fall back to CMakeLists.txt version
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            SHERPA_ONNX_VERSION=${GITHUB_REF_NAME}
+          else
+            SHERPA_ONNX_VERSION=v$(grep "SHERPA_ONNX_VERSION" ./CMakeLists.txt | cut -d " " -f 2 | cut -d '"' -f 2)
+          fi
 
           if [[ "${{ matrix.shared_lib }}" == "ON" ]]; then
             suffix=shared
