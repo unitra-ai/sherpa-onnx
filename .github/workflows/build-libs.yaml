@@ -1,0 +1,240 @@
+name: Build prebuilt libraries
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+
+concurrency:
+  group: build-libs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-x64:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        shared_lib: [ON, OFF]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          mkdir build
+          cd build
+          cmake \
+            -A x64 \
+            -DSHERPA_ONNX_ENABLE_TTS=ON \
+            -DSHERPA_ONNX_ENABLE_PORTAUDIO=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=${{ matrix.shared_lib }} \
+            -DCMAKE_INSTALL_PREFIX=./install \
+            ..
+
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          cmake --build . --config Release -- -m:2
+          cmake --build . --config Release --target install -- -m:2
+
+      - name: Package
+        shell: bash
+        run: |
+          SHERPA_ONNX_VERSION=v$(grep "SHERPA_ONNX_VERSION" ./CMakeLists.txt | cut -d " " -f 2 | cut -d '"' -f 2)
+
+          if [[ "${{ matrix.shared_lib }}" == "ON" ]]; then
+            suffix=shared
+          else
+            suffix=static
+          fi
+
+          dst=sherpa-onnx-${SHERPA_ONNX_VERSION}-win-x64-${suffix}
+          mkdir $dst
+          cp -a build/install/bin $dst/
+          cp -a build/install/lib $dst/
+          cp -a build/install/include $dst/
+          tar cjvf ${dst}.tar.bz2 $dst
+
+      - name: Upload to release
+        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file_glob: true
+          overwrite: true
+          file: sherpa-onnx-*-win-x64*.tar.bz2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-${{ matrix.shared_lib }}
+          path: sherpa-onnx-*.tar.bz2
+
+  macos-universal2:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shared_lib: [ON, OFF]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          mkdir build
+          cd build
+          cmake \
+            -DSHERPA_ONNX_ENABLE_TTS=ON \
+            -DBUILD_SHARED_LIBS=${{ matrix.shared_lib }} \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_INSTALL_PREFIX=./install \
+            ..
+
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          make -j$(sysctl -n hw.ncpu)
+          make install
+
+      - name: Package
+        shell: bash
+        run: |
+          SHERPA_ONNX_VERSION=v$(grep "SHERPA_ONNX_VERSION" ./CMakeLists.txt | cut -d " " -f 2 | cut -d '"' -f 2)
+
+          if [[ "${{ matrix.shared_lib }}" == "ON" ]]; then
+            suffix=shared
+          else
+            suffix=static
+          fi
+
+          dst=sherpa-onnx-${SHERPA_ONNX_VERSION}-osx-universal2-${suffix}
+          mkdir -p $dst/bin $dst/lib $dst/include
+
+          cp -a build/install/bin/* $dst/bin/ 2>/dev/null || true
+          if [[ "${{ matrix.shared_lib }}" == "ON" ]]; then
+            cp -a build/install/lib/*.dylib* $dst/lib/
+          else
+            cp -a build/install/lib/* $dst/lib/
+          fi
+          cp -a build/install/include/* $dst/include/
+
+          # Remove unnecessary files
+          rm -f $dst/include/cargs.h
+          rm -f $dst/lib/libcargs.dylib $dst/lib/libcargs.a
+          rm -rf $dst/lib/pkgconfig
+
+          tar cjvf ${dst}.tar.bz2 $dst
+
+      - name: Upload to release
+        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file_glob: true
+          overwrite: true
+          file: sherpa-onnx-*-osx-universal2*.tar.bz2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal2-${{ matrix.shared_lib }}
+          path: sherpa-onnx-*.tar.bz2
+
+  linux-x64:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shared_lib: [ON, OFF]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build in manylinux container
+        uses: addnab/docker-run-action@v3
+        with:
+          image: quay.io/pypa/manylinux2014_x86_64
+          options: |
+            --volume ${{ github.workspace }}/:/shared
+          shell: bash
+          run: |
+            # Enable newer GCC
+            source /opt/rh/devtoolset-11/enable
+
+            cd /shared
+
+            # Build ALSA for audio support
+            git clone --depth 1 --branch v1.2.12 https://github.com/alsa-project/alsa-lib
+            pushd alsa-lib && ./gitcompile && popd
+
+            export CPLUS_INCLUDE_PATH=$PWD/alsa-lib/include:$CPLUS_INCLUDE_PATH
+            export C_INCLUDE_PATH=$PWD/alsa-lib/include:$C_INCLUDE_PATH
+
+            mkdir build && cd build
+            cmake \
+              -DALSA_INCLUDE_DIR=$PWD/../alsa-lib/include \
+              -DALSA_LIBRARY=$PWD/../alsa-lib/src/.libs/libasound.so \
+              -DSHERPA_ONNX_ENABLE_TTS=ON \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DBUILD_SHARED_LIBS=${{ matrix.shared_lib }} \
+              -DCMAKE_INSTALL_PREFIX=./install \
+              ..
+
+            make -j$(nproc)
+            make install
+
+            # Strip binaries
+            strip bin/* 2>/dev/null || true
+
+      - name: Package
+        shell: bash
+        run: |
+          SHERPA_ONNX_VERSION=v$(grep "SHERPA_ONNX_VERSION" ./CMakeLists.txt | cut -d " " -f 2 | cut -d '"' -f 2)
+
+          if [[ "${{ matrix.shared_lib }}" == "ON" ]]; then
+            suffix=shared
+          else
+            suffix=static
+          fi
+
+          dst=sherpa-onnx-${SHERPA_ONNX_VERSION}-linux-x64-${suffix}
+          mkdir -p $dst/bin $dst/lib $dst/include
+
+          cp -a build/install/bin/* $dst/bin/ 2>/dev/null || true
+          if [[ "${{ matrix.shared_lib }}" == "ON" ]]; then
+            cp -a build/install/lib/*.so* $dst/lib/
+          else
+            cp -a build/install/lib/* $dst/lib/
+          fi
+          cp -a build/install/include/* $dst/include/
+
+          # Remove unnecessary files
+          rm -f $dst/include/cargs.h
+          rm -f $dst/lib/libcargs.so
+          rm -rf $dst/lib/pkgconfig
+
+          tar cjvf ${dst}.tar.bz2 $dst
+
+      - name: Upload to release
+        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file_glob: true
+          overwrite: true
+          file: sherpa-onnx-*-linux-x64*.tar.bz2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64-${{ matrix.shared_lib }}
+          path: sherpa-onnx-*.tar.bz2
