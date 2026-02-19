@@ -150,7 +150,7 @@ jobs:
           path: sherpa-onnx-*.tar.bz2
 
   linux-x64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -161,41 +161,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Build in manylinux container
-        uses: addnab/docker-run-action@v3
-        with:
-          image: quay.io/pypa/manylinux2014_x86_64
-          options: |
-            --volume ${{ github.workspace }}/:/shared
-          shell: bash
-          run: |
-            # Enable newer GCC
-            source /opt/rh/devtoolset-11/enable
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev
 
-            cd /shared
+      - name: Configure CMake
+        shell: bash
+        run: |
+          mkdir build
+          cd build
+          cmake \
+            -DSHERPA_ONNX_ENABLE_TTS=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=${{ matrix.shared_lib }} \
+            -DCMAKE_INSTALL_PREFIX=./install \
+            ..
 
-            # Build ALSA for audio support
-            git clone --depth 1 --branch v1.2.12 https://github.com/alsa-project/alsa-lib
-            pushd alsa-lib && ./gitcompile && popd
-
-            export CPLUS_INCLUDE_PATH=$PWD/alsa-lib/include:$CPLUS_INCLUDE_PATH
-            export C_INCLUDE_PATH=$PWD/alsa-lib/include:$C_INCLUDE_PATH
-
-            mkdir build && cd build
-            cmake \
-              -DALSA_INCLUDE_DIR=$PWD/../alsa-lib/include \
-              -DALSA_LIBRARY=$PWD/../alsa-lib/src/.libs/libasound.so \
-              -DSHERPA_ONNX_ENABLE_TTS=ON \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DBUILD_SHARED_LIBS=${{ matrix.shared_lib }} \
-              -DCMAKE_INSTALL_PREFIX=./install \
-              ..
-
-            make -j$(nproc)
-            make install
-
-            # Strip binaries
-            strip bin/* 2>/dev/null || true
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          make -j$(nproc)
+          make install
+          strip bin/* 2>/dev/null || true
 
       - name: Package
         shell: bash
