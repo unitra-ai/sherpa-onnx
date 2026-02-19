@@ -167,6 +167,24 @@ static sherpa_onnx::OnlineRecognizerConfig GetOnlineRecognizerConfig(
   recognizer_config.hr.lexicon = SHERPA_ONNX_OR(config->hr.lexicon, "");
   recognizer_config.hr.rule_fsts = SHERPA_ONNX_OR(config->hr.rule_fsts, "");
 
+  // LM config for shallow fusion + LODR
+  recognizer_config.lm_config.model =
+      SHERPA_ONNX_OR(config->lm_config.model, "");
+  recognizer_config.lm_config.scale =
+      config->lm_config.scale;  // 0.0 means disabled
+  recognizer_config.lm_config.lm_num_threads =
+      SHERPA_ONNX_OR(config->lm_config.lm_num_threads, 1);
+  recognizer_config.lm_config.lm_provider =
+      SHERPA_ONNX_OR(config->lm_config.lm_provider, "cpu");
+  if (recognizer_config.lm_config.lm_provider.empty()) {
+    recognizer_config.lm_config.lm_provider = "cpu";
+  }
+  recognizer_config.lm_config.lodr_fst =
+      SHERPA_ONNX_OR(config->lm_config.lodr_fst, "");
+  recognizer_config.lm_config.lodr_scale = config->lm_config.lodr_scale;
+  recognizer_config.lm_config.shallow_fusion =
+      config->lm_config.shallow_fusion != 0;
+
   if (config->model_config.debug) {
 #if __OHOS__
     auto str_vec = sherpa_onnx::SplitString(recognizer_config.ToString(), 128);

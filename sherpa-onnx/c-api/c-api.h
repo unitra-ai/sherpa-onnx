@@ -155,9 +155,38 @@ SHERPA_ONNX_API typedef struct SherpaOnnxHomophoneReplacerConfig {
   const char *rule_fsts;
 } SherpaOnnxHomophoneReplacerConfig;
 
+/// Configuration for online (streaming) LM rescoring.
+/// Maps to C++ OnlineLMConfig in csrc/online-lm-config.h
+SHERPA_ONNX_API typedef struct SherpaOnnxOnlineLMConfig {
+  /// Path to the RNNLM ONNX model (with-state format).
+  /// Set to "" or NULL to disable LM.
+  const char *model;
+
+  /// LM weight for shallow fusion interpolation.
+  /// Typical value: 0.3. Set to 0.0 to disable.
+  float scale;
+
+  /// Number of threads for LM inference. Default: 1.
+  int32_t lm_num_threads;
+
+  /// ONNX execution provider for LM. Usually "cpu".
+  const char *lm_provider;
+
+  /// Path to the LODR (Low-Order Density Ratio) FST binary.
+  /// Set to "" or NULL to disable LODR.
+  const char *lodr_fst;
+
+  /// LODR interpolation weight. Should be negative (e.g., -0.2).
+  float lodr_scale;
+
+  /// Enable shallow fusion. 1 = true, 0 = false.
+  int32_t shallow_fusion;
+} SherpaOnnxOnlineLMConfig;
+
 SHERPA_ONNX_API typedef struct SherpaOnnxOnlineRecognizerConfig {
   SherpaOnnxFeatureConfig feat_config;
   SherpaOnnxOnlineModelConfig model_config;
+  SherpaOnnxOnlineLMConfig lm_config;
 
   /// Possible values are: greedy_search, modified_beam_search
   const char *decoding_method;
