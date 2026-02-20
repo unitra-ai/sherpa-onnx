@@ -324,6 +324,9 @@ SHERPA_ONNX_API typedef struct SherpaOnnxOnlineLMConfig {
   /// LODR interpolation weight. Should be negative (e.g., -0.2).
   float lodr_scale;
 
+  /// Backoff symbol ID for LODR FST. Set to -1 to use default.
+  int32_t lodr_backoff_id;
+
   /// Enable shallow fusion. 1 = true, 0 = false.
   int32_t shallow_fusion;
 } SherpaOnnxOnlineLMConfig;

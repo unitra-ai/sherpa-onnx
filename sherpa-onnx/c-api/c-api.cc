@@ -187,6 +187,8 @@ static sherpa_onnx::OnlineRecognizerConfig GetOnlineRecognizerConfig(
   recognizer_config.lm_config.lodr_fst =
       SHERPA_ONNX_OR(config->lm_config.lodr_fst, "");
   recognizer_config.lm_config.lodr_scale = config->lm_config.lodr_scale;
+  recognizer_config.lm_config.lodr_backoff_id =
+      config->lm_config.lodr_backoff_id;  // -1 means use default
   recognizer_config.lm_config.shallow_fusion =
       config->lm_config.shallow_fusion != 0;
 
