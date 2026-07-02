@@ -54,6 +54,14 @@ const char *SherpaOnnxGetVersionStr() { return sherpa_onnx::GetVersionStr(); }
 const char *SherpaOnnxGetGitSha1() { return sherpa_onnx::GetGitSha1(); }
 const char *SherpaOnnxGetGitDate() { return sherpa_onnx::GetGitDate(); }
 
+int32_t SherpaOnnxDirectMlCompiledIn() {
+#if defined(_WIN32) && SHERPA_ONNX_ENABLE_DIRECTML == 1
+  return 1;
+#else
+  return 0;
+#endif
+}
+
 struct SherpaOnnxOnlineRecognizer {
   std::unique_ptr<sherpa_onnx::OnlineRecognizer> impl;
 };

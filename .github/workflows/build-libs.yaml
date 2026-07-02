@@ -80,6 +80,66 @@ jobs:
           name: windows-x64-${{ matrix.shared_lib }}
           path: sherpa-onnx-*.tar.bz2
 
+  windows-x64-directml:
+    runs-on: windows-2022
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          mkdir build
+          cd build
+          cmake \
+            -A x64 \
+            -DSHERPA_ONNX_ENABLE_DIRECTML=ON \
+            -DSHERPA_ONNX_ENABLE_TTS=ON \
+            -DSHERPA_ONNX_ENABLE_PORTAUDIO=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=ON \
+            -DCMAKE_INSTALL_PREFIX=./install \
+            ..
+
+      - name: Build
+        shell: bash
+        run: |
+          cd build
+          cmake --build . --config Release -- -m:2
+          cmake --build . --config Release --target install -- -m:2
+
+      - name: Package
+        shell: bash
+        run: |
+          # Use git tag if available, otherwise fall back to CMakeLists.txt version
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            SHERPA_ONNX_VERSION=${GITHUB_REF_NAME}
+          else
+            SHERPA_ONNX_VERSION=v$(grep "SHERPA_ONNX_VERSION" ./CMakeLists.txt | cut -d " " -f 2 | cut -d '"' -f 2)
+          fi
+
+          dst=sherpa-onnx-${SHERPA_ONNX_VERSION}-win-x64-directml-shared
+          mkdir $dst
+          cp -a build/install/bin $dst/
+          cp -a build/install/lib $dst/
+          cp -a build/install/include $dst/
+          tar cjvf ${dst}.tar.bz2 $dst
+
+      - name: Upload to release
+        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          file_glob: true
+          overwrite: true
+          file: sherpa-onnx-*-win-x64-directml*.tar.bz2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-directml
+          path: sherpa-onnx-*.tar.bz2
+
   macos-universal2:
     runs-on: macos-latest
     strategy:

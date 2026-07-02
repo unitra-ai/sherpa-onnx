@@ -140,6 +140,15 @@ SHERPA_ONNX_API const char *SherpaOnnxGetVersionStr();
  */
 SHERPA_ONNX_API const char *SherpaOnnxGetGitSha1();
 
+// Returns 1 if this library was compiled with DirectML support
+// (SHERPA_ONNX_ENABLE_DIRECTML=ON on Windows), 0 otherwise.
+//
+// Passing provider="directml" to a library compiled WITHOUT DirectML
+// silently falls back to CPU (session.cc prints a warning but no error is
+// surfaced through the API). Callers that need real GPU placement must
+// check this before trusting the provider string.
+SHERPA_ONNX_API int32_t SherpaOnnxDirectMlCompiledIn();
+
 /**
  * @brief Return the Git build date used to build the library.
  *
