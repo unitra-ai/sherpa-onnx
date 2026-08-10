@@ -13,18 +13,18 @@ if(BUILD_SHARED_LIBS)
   message(FATAL_ERROR "This file is for building static libraries. BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
 endif()
 
-set(onnxruntime_URL  "https://github.com/csukuangfj/onnxruntime-libs/releases/download/v1.23.2/onnxruntime-osx-universal2-static_lib-1.23.2.zip")
-set(onnxruntime_URL2  "https://hf-mirror.com/csukuangfj/onnxruntime-libs/resolve/main/1.23.2/onnxruntime-osx-universal2-static_lib-1.23.2.zip")
-set(onnxruntime_HASH "SHA256=9ea206a621d6e5550ddb9de0b96c4f666b074620f5c685b0479b5fa02c0bba76")
+set(onnxruntime_URL  "https://github.com/csukuangfj/onnxruntime-libs/releases/download/v1.27.0/onnxruntime-osx-universal2-static_lib-1.27.0.zip")
+set(onnxruntime_URL2  "https://hf-mirror.com/csukuangfj2/onnxruntime-libs/resolve/main/1.27.0/onnxruntime-osx-universal2-static_lib-1.27.0.zip")
+set(onnxruntime_HASH "SHA256=6794da8dd86d0b83b453e7968771cddfb3004e3db4cda5cea6d4111a616f49cb")
 
 # If you don't have access to the Internet,
 # please download onnxruntime to one of the following locations.
 # You can add more if you want.
 set(possible_file_locations
-  $ENV{HOME}/Downloads/onnxruntime-osx-universal2-static_lib-1.23.2.zip
-  ${CMAKE_SOURCE_DIR}/onnxruntime-osx-universal2-static_lib-1.23.2.zip
-  ${CMAKE_BINARY_DIR}/onnxruntime-osx-universal2-static_lib-1.23.2.zip
-  /tmp/onnxruntime-osx-universal2-static_lib-1.23.2.zip
+  $ENV{HOME}/Downloads/onnxruntime-osx-universal2-static_lib-1.27.0.zip
+  ${CMAKE_SOURCE_DIR}/onnxruntime-osx-universal2-static_lib-1.27.0.zip
+  ${CMAKE_BINARY_DIR}/onnxruntime-osx-universal2-static_lib-1.27.0.zip
+  /tmp/onnxruntime-osx-universal2-static_lib-1.27.0.zip
 )
 
 foreach(f IN LISTS possible_file_locations)
@@ -54,7 +54,7 @@ message(STATUS "onnxruntime is downloaded to ${onnxruntime_SOURCE_DIR}")
 # for static libraries, we use onnxruntime_lib_files directly below
 include_directories(${onnxruntime_SOURCE_DIR}/include)
 
-file(GLOB onnxruntime_lib_files "${onnxruntime_SOURCE_DIR}/lib/lib*.a")
+file(GLOB onnxruntime_lib_files "${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.a")
 
 set(onnxruntime_lib_files ${onnxruntime_lib_files} PARENT_SCOPE)
 

@@ -23,18 +23,38 @@ if(location_onnxruntime_header_dir AND location_onnxruntime_lib)
     message("Use preinstall onnxruntime with directml: ${location_onnxruntime_lib}")
 else()
 
-    set(onnxruntime_URL  "https://globalcdn.nuget.org/packages/microsoft.ml.onnxruntime.directml.1.14.1.nupkg")
-    set(onnxruntime_URL2 "https://hf-mirror.com/csukuangfj/sherpa-onnx-cmake-deps/resolve/main/microsoft.ml.onnxruntime.directml.1.14.1.nupkg")
-    set(onnxruntime_HASH "SHA256=c8ae7623385b19cd5de968d0df5383e13b97d1b3a6771c9177eac15b56013a5a")
+    # Bumped from upstream's 1.14.1 -> 1.23.0 by unitra-ai (2026-05-09).
+    #
+    # ORT 1.14 (upstream pin) ships a DirectML EP with two separate bugs that
+    # break Zipformer/transducer inference:
+    #
+    # 1. Numerical instability: FP32 decoding produces character repetitions
+    #    (e.g. "気気雪や路凍結結...") instead of clean Japanese — verified
+    #    on sherpa-onnx-zipformer-ja-reazonspeech-2024-08-01 with both
+    #    sherpa-onnx-offline.exe and the Rust integration in
+    #    Unitra.Client.Desktop.
+    # 2. INT8 path is unstable (hangs / produces garbage) at recognizer-creation
+    #    or first decode.
+    #
+    # ORT 1.23.0 fixes (1) entirely (FP32/DML output now matches CPU bit-for-bit
+    # tolerable). INT8/DML is still flaky in 1.23 — that's a separate sherpa-onnx
+    # quant-kernel issue tracked upstream. The Auto provider resolver in
+    # Unitra.Client.Desktop pins INT8 -> CPU until upstream fixes it.
+    #
+    # Bench data + repro recipe: docs/asr/PROVIDER_SELECTION.md in the
+    # Unitra.Client.Desktop repo.
+    set(onnxruntime_URL  "https://globalcdn.nuget.org/packages/microsoft.ml.onnxruntime.directml.1.23.0.nupkg")
+    set(onnxruntime_URL2 "https://hf-mirror.com/csukuangfj/sherpa-onnx-cmake-deps/resolve/main/microsoft.ml.onnxruntime.directml.1.23.0.nupkg")
+    set(onnxruntime_HASH "SHA256=a33ec2382b3c440bab74042a135733bb6e5085f293b908d3997688a58fe307e7")
 
     # If you don't have access to the Internet,
     # please download onnxruntime to one of the following locations.
     # You can add more if you want.
     set(possible_file_locations
-        $ENV{HOME}/Downloads/microsoft.ml.onnxruntime.directml.1.14.1.nupkg
-        ${PROJECT_SOURCE_DIR}/microsoft.ml.onnxruntime.directml.1.14.1.nupkg
-        ${PROJECT_BINARY_DIR}/microsoft.ml.onnxruntime.directml.1.14.1.nupkg
-        /tmp/microsoft.ml.onnxruntime.directml.1.14.1.nupkg
+        $ENV{HOME}/Downloads/microsoft.ml.onnxruntime.directml.1.23.0.nupkg
+        ${PROJECT_SOURCE_DIR}/microsoft.ml.onnxruntime.directml.1.23.0.nupkg
+        ${PROJECT_BINARY_DIR}/microsoft.ml.onnxruntime.directml.1.23.0.nupkg
+        /tmp/microsoft.ml.onnxruntime.directml.1.23.0.nupkg
     )
 
     foreach(f IN LISTS possible_file_locations)

@@ -15,19 +15,19 @@ if(NOT BUILD_SHARED_LIBS)
 endif()
 
 # requires gcc 11
-set(onnxruntime_URL  "https://github.com/csukuangfj/onnxruntime-libs/releases/download/v1.23.2/onnxruntime-linux-arm-1.23.2.zip")
-set(onnxruntime_URL2 "https://hf-mirror.com/csukuangfj/onnxruntime-libs/resolve/main/1.23.2/onnxruntime-linux-arm-1.23.2.zip")
-set(onnxruntime_HASH "SHA256=c00aae409731930433badaf7d629499b9a1dcfac4dd67ad6b6a4838349bd6ba5")
+set(onnxruntime_URL  "https://github.com/csukuangfj/onnxruntime-libs/releases/download/v1.27.0/onnxruntime-linux-arm-1.27.0.zip")
+set(onnxruntime_URL2 "https://hf-mirror.com/csukuangfj2/onnxruntime-libs/resolve/main/1.27.0/onnxruntime-linux-arm-1.27.0.zip")
+set(onnxruntime_HASH "SHA256=a0b92ef8bdd9e723781879746f462445a59441dce9b39662d801cb40a1cd3fb3")
 
 # If you don't have access to the Internet,
 # please download onnxruntime to one of the following locations.
 # You can add more if you want.
 set(possible_file_locations
-  $ENV{HOME}/Downloads/onnxruntime-linux-arm-1.23.2.zip
-  ${CMAKE_SOURCE_DIR}/onnxruntime-linux-arm-1.23.2.zip
-  ${CMAKE_BINARY_DIR}/onnxruntime-linux-arm-1.23.2.zip
-  /tmp/onnxruntime-linux-arm-1.23.2.zip
-  /star-fj/fangjun/download/github/onnxruntime-linux-arm-1.23.2.zip
+  $ENV{HOME}/Downloads/onnxruntime-linux-arm-1.27.0.zip
+  ${CMAKE_SOURCE_DIR}/onnxruntime-linux-arm-1.27.0.zip
+  ${CMAKE_BINARY_DIR}/onnxruntime-linux-arm-1.27.0.zip
+  /tmp/onnxruntime-linux-arm-1.27.0.zip
+  /star-fj/fangjun/download/github/onnxruntime-linux-arm-1.27.0.zip
 )
 
 foreach(f IN LISTS possible_file_locations)

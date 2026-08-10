@@ -12,18 +12,18 @@ if(BUILD_SHARED_LIBS)
   message(FATAL_ERROR "This file is for building static libraries. BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
 endif()
 
-set(onnxruntime_URL  "https://github.com/csukuangfj/onnxruntime-libs/releases/download/v1.23.2/onnxruntime-osx-arm64-static_lib-1.23.2.zip")
-set(onnxruntime_URL2 "https://hf-mirror.com/csukuangfj/onnxruntime-libs/resolve/main/1.23.2/onnxruntime-osx-arm64-static_lib-1.23.2.zip")
-set(onnxruntime_HASH "SHA256=febeb7116f075409c554434a317cd51a2efb26abbf364c2ed77191f728a56633")
+set(onnxruntime_URL  "https://github.com/csukuangfj/onnxruntime-libs/releases/download/v1.27.0/onnxruntime-osx-arm64-static_lib-1.27.0.zip")
+set(onnxruntime_URL2 "https://hf-mirror.com/csukuangfj2/onnxruntime-libs/resolve/main/1.27.0/onnxruntime-osx-arm64-static_lib-1.27.0.zip")
+set(onnxruntime_HASH "SHA256=4284d9997a9c03d752172c1375f104327035798fb42c83e5b8d2678b259557fa")
 
 # If you don't have access to the Internet,
 # please download onnxruntime to one of the following locations.
 # You can add more if you want.
 set(possible_file_locations
-  $ENV{HOME}/Downloads/onnxruntime-osx-arm64-static_lib-1.23.2.zip
-  ${CMAKE_SOURCE_DIR}/onnxruntime-osx-arm64-static_lib-1.23.2.zip
-  ${CMAKE_BINARY_DIR}/onnxruntime-osx-arm64-static_lib-1.23.2.zip
-  /tmp/onnxruntime-osx-arm64-static_lib-1.23.2.zip
+  $ENV{HOME}/Downloads/onnxruntime-osx-arm64-static_lib-1.27.0.zip
+  ${CMAKE_SOURCE_DIR}/onnxruntime-osx-arm64-static_lib-1.27.0.zip
+  ${CMAKE_BINARY_DIR}/onnxruntime-osx-arm64-static_lib-1.27.0.zip
+  /tmp/onnxruntime-osx-arm64-static_lib-1.27.0.zip
 )
 
 foreach(f IN LISTS possible_file_locations)
@@ -53,7 +53,7 @@ message(STATUS "onnxruntime is downloaded to ${onnxruntime_SOURCE_DIR}")
 # for static libraries, we use onnxruntime_lib_files directly below
 include_directories(${onnxruntime_SOURCE_DIR}/include)
 
-file(GLOB onnxruntime_lib_files "${onnxruntime_SOURCE_DIR}/lib/lib*.a")
+file(GLOB onnxruntime_lib_files "${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.a")
 
 set(onnxruntime_lib_files ${onnxruntime_lib_files} PARENT_SCOPE)
 
