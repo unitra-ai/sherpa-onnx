@@ -314,6 +314,83 @@ inline void RemoveUtf8ReplacementChars(std::string *s) {
   }
 }
 
+// Log-probability of `token_id` under a softmax over one logits row.
+//
+// Filled into OfflineRecognitionResult::ys_log_probs so downstream consumers
+// can compute a real acoustic confidence — exp(mean(ys_log_probs)) — the same
+// way the transducer and CTC recognizers already allow. Without this the field
+// comes back empty for Qwen3-ASR and any confidence gate built on it silently
+// degrades to a text-length heuristic.
+//
+// Computed as logit[token] - logsumexp(row), with the max subtracted first so
+// the exponentials cannot overflow; a plain softmax over ~150k vocab logits in
+// fp16 would.
+inline float Qwen3TokenLogProb(const void *row, bool is_fp16,
+                               int32_t vocab_size, int64_t token_id) {
+  if (!row || vocab_size <= 0 || token_id < 0 || token_id >= vocab_size) {
+    return 0.0f;
+  }
+
+  auto at = [row, is_fp16](int32_t i) -> float {
+    if (is_fp16) {
+      return HalfBitsToFloat(reinterpret_cast<const uint16_t *>(row)[i]);
+    }
+    return reinterpret_cast<const float *>(row)[i];
+  };
+
+  float max_val = -std::numeric_limits<float>::infinity();
+  for (int32_t i = 0; i < vocab_size; ++i) {
+    float v = at(i);
+    if (std::isfinite(v) && v > max_val) {
+      max_val = v;
+    }
+  }
+  if (!std::isfinite(max_val)) {
+    return 0.0f;
+  }
+
+  double sum_exp = 0.0;
+  for (int32_t i = 0; i < vocab_size; ++i) {
+    float v = at(i);
+    if (std::isfinite(v)) {
+      sum_exp += std::exp(static_cast<double>(v - max_val));
+    }
+  }
+  if (sum_exp <= 0.0) {
+    return 0.0f;
+  }
+
+  const float chosen = at(static_cast<int32_t>(token_id));
+  if (!std::isfinite(chosen)) {
+    return 0.0f;
+  }
+  return static_cast<float>((chosen - max_val) - std::log(sum_exp));
+}
+
+// Row pointer for `time_index` inside a (batch, time, vocab) logits tensor,
+// plus the metadata needed to read it. Returns nullptr when the shape is not
+// what the decode loop expects.
+inline const void *Qwen3LogitsRow(const Ort::Value &logits, int32_t time_index,
+                                  bool *is_fp16, int32_t *vocab_size) {
+  auto info = logits.GetTensorTypeAndShapeInfo();
+  auto shape = info.GetShape();
+  if (shape.size() < 3 || shape[1] <= 0 || shape[2] <= 0 || time_index < 0 ||
+      time_index >= static_cast<int32_t>(shape[1])) {
+    return nullptr;
+  }
+
+  *vocab_size = static_cast<int32_t>(shape[2]);
+  auto elem_type = static_cast<ONNXTensorElementDataType>(info.GetElementType());
+  *is_fp16 = (elem_type == ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16 ||
+              elem_type == ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT16);
+
+  const size_t offset = static_cast<size_t>(time_index) * (*vocab_size);
+  if (*is_fp16) {
+    return logits.GetTensorData<uint16_t>() + offset;
+  }
+  return logits.GetTensorData<float>() + offset;
+}
+
 }  // namespace
 
 OfflineRecognizerQwen3ASRImpl::OfflineRecognizerQwen3ASRImpl(
@@ -879,6 +956,18 @@ OfflineRecognitionResult OfflineRecognizerQwen3ASRImpl::GenerateText(
 
   int64_t next_id = SampleTokenFromLogits(logits, last_idx, temperature, top_p);
 
+  // Per-token acoustic log-probabilities, parallel to generated_ids.
+  // Sampled at every site that appends a token so the two stay aligned.
+  std::vector<float> gen_log_probs;
+  gen_log_probs.reserve(max_new_tokens > 0 ? max_new_tokens : 0);
+  {
+    bool row_fp16 = false;
+    int32_t row_vocab = 0;
+    const void *row = Qwen3LogitsRow(logits, last_idx, &row_fp16, &row_vocab);
+    gen_log_probs.push_back(
+        Qwen3TokenLogProb(row, row_fp16, row_vocab, next_id));
+  }
+
   if (next_id == eos_id) {
     if (config_.model_config.debug) {
       float abs_max = TensorAbsMax(logits, 1LL << 20);
@@ -907,6 +996,13 @@ OfflineRecognitionResult OfflineRecognizerQwen3ASRImpl::GenerateText(
 
     next_id = SampleTokenWithTemperatureAndTopP(row, is_fp16, vocab_size,
                                                 temperature, top_p, eos_id);
+
+    // Same row, different token: replace rather than append, or the
+    // log-prob vector would gain an entry generated_ids never gets.
+    if (!gen_log_probs.empty()) {
+      gen_log_probs.back() =
+          Qwen3TokenLogProb(row, is_fp16, vocab_size, next_id);
+    }
 
     if (next_id == eos_id) {
       result.text = "";
@@ -975,6 +1071,15 @@ OfflineRecognitionResult OfflineRecognizerQwen3ASRImpl::GenerateText(
       break;
     }
 
+    {
+      bool row_fp16 = false;
+      int32_t row_vocab = 0;
+      const void *row =
+          Qwen3LogitsRow(logits, time_dim2 - 1, &row_fp16, &row_vocab);
+      gen_log_probs.push_back(
+          Qwen3TokenLogProb(row, row_fp16, row_vocab, next_id));
+    }
+
     generated_ids.push_back(next_id);
     ++cur_len;
   }
@@ -1001,6 +1106,14 @@ OfflineRecognitionResult OfflineRecognizerQwen3ASRImpl::GenerateText(
 
   result.text = tokenizer_->Decode(cleaned_ids);
   RemoveUtf8ReplacementChars(&result.text);
+
+  // cleaned_ids is generated_ids with an optional scaffold prefix removed,
+  // so drop the matching head of the log-prob vector to keep them aligned.
+  if (gen_log_probs.size() >= cleaned_ids.size()) {
+    const size_t dropped = gen_log_probs.size() - cleaned_ids.size();
+    result.ys_log_probs.assign(gen_log_probs.begin() + dropped,
+                               gen_log_probs.end());
+  }
 
   if (!cleaned_ids.empty()) {
     std::vector<std::string> all_tokens;
