@@ -26,6 +26,19 @@ struct OfflineCtcDecoderResult {
   ///
   /// tokens.size() == timestamps.size()
   std::vector<int32_t> timestamps;
+
+  /// ys_probs[i] is the acoustic log-probability of the frame that emitted
+  /// tokens[i], i.e. log_probs[t][tokens[i]] at that frame.
+  ///
+  /// Empty when the decoder does not produce it (the HLG/FST decoders search a
+  /// graph rather than reading a per-frame argmax, so there is no single frame
+  /// posterior to attribute a token to). Consumers must treat empty as "not
+  /// measured" rather than substituting a constant: the transducer decoders
+  /// fill the equivalent field, so downstream code already distinguishes the
+  /// two.
+  ///
+  /// tokens.size() == ys_probs.size() when non-empty.
+  std::vector<float> ys_probs;
 };
 
 class OfflineCtcDecoder {

@@ -31,6 +31,15 @@ OfflineRecognitionResult Convert(const OfflineCtcDecoderResult &src,
   r.tokens.reserve(src.tokens.size());
   r.timestamps.reserve(src.timestamps.size());
 
+  // Only when the decoder produced one per token. The HLG/FST decoders do
+  // not, and an array that is not parallel to `tokens` is worse than an
+  // absent one: the C API drops a mismatched array wholesale, so a partial
+  // fill would look exactly like "this model has no confidence".
+  const bool has_probs = src.ys_probs.size() == src.tokens.size();
+  if (has_probs) {
+    r.ys_log_probs.reserve(src.ys_probs.size());
+  }
+
   std::string text;
 
   for (int32_t i = 0; i != src.tokens.size(); ++i) {
@@ -45,6 +54,12 @@ OfflineRecognitionResult Convert(const OfflineCtcDecoderResult &src,
     }
     auto sym = sym_table[src.tokens[i]];
     text.append(sym);
+
+    // Pushed under the same two `continue`s as the token itself, so the two
+    // arrays stay index-aligned through the skips.
+    if (has_probs) {
+      r.ys_log_probs.push_back(src.ys_probs[i]);
+    }
 
     if (sym.size() == 1 && (sym[0] < 0x20 || sym[0] > 0x7e)) {
       // for bpe models with byte_fallback

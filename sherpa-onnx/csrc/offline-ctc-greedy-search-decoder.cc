@@ -37,11 +37,17 @@ std::vector<OfflineCtcDecoderResult> OfflineCtcGreedySearchDecoder::Decode(
           std::max_element(
               static_cast<const float *>(p_log_probs),
               static_cast<const float *>(p_log_probs) + vocab_size)));
+      // The winning frame's log-probability. Already in hand -- it is the
+      // value max_element just selected -- so recording it costs nothing, and
+      // without it a CTC model is the only decode family here that can report
+      // no confidence at all.
+      float y_log_prob = p_log_probs[y];
       p_log_probs += vocab_size;
 
       if (y != blank_id_ && y != prev_id) {
         r.tokens.push_back(y);
         r.timestamps.push_back(t);
+        r.ys_probs.push_back(y_log_prob);
       }
       prev_id = y;
     }  // for (int32_t t = 0; ...)
